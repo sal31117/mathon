@@ -1,21 +1,20 @@
 import streamlit as st
 import time
-from datetime import timedelta
 
 st.set_page_config(page_title="Pomodoro 타이머", page_icon="⏰")
 
 st.title("🍅 Pomodoro 타이머")
 st.markdown("**25분 집중 + 5분 휴식** 주기로 학습 집중력을 높여보세요!")
 
-# 초기 상태 설정
+# 상태 초기화
 if "phase" not in st.session_state:
-    st.session_state.phase = "집중"  # "집중" or "휴식"
+    st.session_state.phase = "집중"
+if "duration" not in st.session_state:
+    st.session_state.duration = 25 * 60
 if "running" not in st.session_state:
     st.session_state.running = False
-if "start_time" not in st.session_state:
-    st.session_state.start_time = None
-if "duration" not in st.session_state:
-    st.session_state.duration = 25 * 60  # 25분
+if "remaining" not in st.session_state:
+    st.session_state.remaining = st.session_state.duration
 
 # 단계 전환 함수
 def switch_phase():
@@ -25,41 +24,45 @@ def switch_phase():
     else:
         st.session_state.phase = "집중"
         st.session_state.duration = 25 * 60
-    st.session_state.start_time = time.time()
+    st.session_state.remaining = st.session_state.duration
 
-# 시작 버튼 누르면 시간 기록
-if st.button("▶️ 시작"):
-    if not st.session_state.running:
-        st.session_state.start_time = time.time()
+# 버튼 인터페이스
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    if st.button("▶️ 시작"):
         st.session_state.running = True
 
-# 중지
-if st.button("⏸ 중지"):
-    st.session_state.running = False
+with col2:
+    if st.button("⏸ 중지"):
+        st.session_state.running = False
 
-# 초기화
-if st.button("🔄 초기화"):
-    st.session_state.running = False
-    st.session_state.phase = "집중"
-    st.session_state.duration = 25 * 60
-    st.session_state.start_time = None
+with col3:
+    if st.button("🔄 초기화"):
+        st.session_state.running = False
+        st.session_state.phase = "집중"
+        st.session_state.duration = 25 * 60
+        st.session_state.remaining = st.session_state.duration
 
 # 타이머 표시
-if st.session_state.running and st.session_state.start_time:
-    elapsed = time.time() - st.session_state.start_time
-    remaining = int(st.session_state.duration - elapsed)
-    
-    if remaining <= 0:
-        st.success(f"✅ {st.session_state.phase} 완료!")
-        switch_phase()
-        remaining = st.session_state.duration
+timer_placeholder = st.empty()
+status_placeholder = st.empty()
 
-    minutes, seconds = divmod(remaining, 60)
-    st.subheader(f"⏱ 남은 시간: {minutes:02d}:{seconds:02d}")
-    st.info(f"현재 단계: **{st.session_state.phase} 중**")
-
-    # 반복적으로 새로고침해서 실시간 표시 (1초 간격)
-    st.experimental_rerun()
+if st.session_state.running:
+    while st.session_state.running and st.session_state.remaining > 0:
+        mins, secs = divmod(st.session_state.remaining, 60)
+        timer_placeholder.subheader(f"⏱ 남은 시간: {mins:02d}:{secs:02d}")
+        status_placeholder.info(f"현재 단계: **{st.session_state.phase} 중**")
+        time.sleep(1)
+        st.session_state.remaining -= 1
+        st.experimental_rerun()  # Streamlit 앱 구조상 여기는 써야 함
 else:
-    st.subheader("⏱ 타이머가 멈춰 있습니다.")
-    st.info(f"현재 단계: **{st.session_state.phase} 중**")
+    mins, secs = divmod(st.session_state.remaining, 60)
+    timer_placeholder.subheader(f"⏱ 남은 시간: {mins:02d}:{secs:02d}")
+    status_placeholder.info(f"현재 단계: **{st.session_state.phase} 중**")
+
+# 종료 시
+if st.session_state.remaining == 0:
+    st.success(f"✅ {st.session_state.phase} 완료!")
+    switch_phase()
+
